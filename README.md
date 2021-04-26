@@ -11,7 +11,7 @@ gray different values of gray.
 
 Both ramps should be identical.
 
-A reference ramp from [1](https://blog.johnnovak.net/2016/09/21/what-every-coder-should-know-about-gamma/) is visible below
+A reference ramp from ["what every coder should know about gamma"](https://blog.johnnovak.net/2016/09/21/what-every-coder-should-know-about-gamma/) is visible below
 
 ![Reference](gamma-ramp32.png)
 
