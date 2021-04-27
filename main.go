@@ -29,6 +29,8 @@ identical or very similar. If not, there is a problem.
 */
 
 import (
+	"bytes"
+	_ "embed"
 	"image"
 	"image/color"
 	"image/png"
@@ -44,6 +46,9 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 )
+
+//go:embed gamma-ramp32.png
+var gammaRamp32 []byte
 
 func main() {
 	go func() {
@@ -130,22 +135,13 @@ func drawRefImg(gtx layout.Context, x, y, w, h float64) {
 	defer op.Save(gtx.Ops).Load()
 	if img == nil {
 		var err error
-		img, err = loadPng("gamma-ramp32.png")
+		img, err = png.Decode(bytes.NewReader(gammaRamp32))
 		if err != nil {
-			log.Fatal("failed loading reference ramp:", err)
+			log.Fatal("failed decoding reference ramp:", err)
 		}
 	}
 	imgSize := img.Bounds().Size()
 	op.Affine(f32.Affine2D{}.Scale(f32.Pt(0, 0), toF32Pt(w/float64(imgSize.X), h/float64(imgSize.Y))).Offset(toF32Pt(x, y))).Add(gtx.Ops)
 	paint.NewImageOp(img).Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
-}
-
-func loadPng(fileName string) (image.Image, error) {
-	f, err := os.Open(fileName)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return png.Decode(f)
 }
