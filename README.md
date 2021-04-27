@@ -14,7 +14,3 @@ Both ramps should be identical.
 A reference ramp from ["what every coder should know about gamma"](https://blog.johnnovak.net/2016/09/21/what-every-coder-should-know-about-gamma/) is visible below
 
 ![Reference](gamma-ramp32.png)
-
-
-Note: the go.mod file references my modifiable instance of Gio code. Comment it out or change the path. 
-I needed it because I modified Gio to disable gamma correction to see the effect.
