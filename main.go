@@ -25,7 +25,9 @@ problem with gamma correction or anti-aliasing.
 */
 
 import (
+	"image"
 	"image/color"
+	"image/png"
 	"log"
 	"math"
 	"os"
@@ -62,9 +64,11 @@ func loop(w *app.Window) error {
 			gtx := layout.NewContext(&ops, e)
 			width := float64(e.Size.X)
 			boxWidth := width / nbrBox
-			boxHeight := math.Ceil((boxWidth) * 2 * 1.61803398875) // make it nice by using the golden ratio
-			drawGrayBar1(gtx, width, nbrBox, boxWidth, boxHeight, 0, 0)
-			drawGrayBar2(gtx, width, nbrBox, boxWidth, boxHeight, 0, boxHeight)
+			boxHeight := math.Ceil((boxWidth) * 2)
+			drawRefImg(gtx, 0, 0, width, boxHeight)
+			drawGrayBar1(gtx, width, nbrBox, boxWidth, boxHeight, 0, boxHeight)
+			drawGrayBar2(gtx, width, nbrBox, boxWidth, boxHeight, 0, 2*boxHeight)
+			drawRefImg(gtx, 0, 3*boxHeight, width, boxHeight)
 			e.Frame(gtx.Ops)
 		}
 	}
@@ -97,20 +101,62 @@ func drawRect(gtx layout.Context, x, y, w, h float64, gray uint8) {
 	defer op.Save(gtx.Ops).Load()
 	var p clip.Path
 	paint.ColorOp{Color: color.NRGBA{R: gray, G: gray, B: gray, A: 0xFF}}.Add(gtx.Ops)
+	op.Offset(toF32Pt(x, y)).Add(gtx.Ops)
 	p.Begin(gtx.Ops)
-	p.MoveTo(toF32Pt(x, y))
-	p.LineTo(toF32Pt(x+w, y))
-	p.LineTo(toF32Pt(x+w, y+h))
-	p.LineTo(toF32Pt(x, y+h))
+	p.MoveTo(toF32Pt(0, 0))
+	p.LineTo(toF32Pt(w, 0))
+	p.LineTo(toF32Pt(w, h))
+	p.LineTo(toF32Pt(0, h))
 	p.Close()
 	clip.Outline{Path: p.End()}.Op().Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 }
 
 func drawGrayBar2(gtx layout.Context, width, nbrBox, boxWidth, boxHeight, offsetX, offsetY float64) {
-	defer op.Save(gtx.Ops).Load()
 	for x := 0.; x < nbrBox; x++ {
 		gray := uint8((x*255)/(nbrBox-1) + 0.5)
 		drawRect(gtx, x*boxWidth+offsetX, offsetY, boxWidth, boxHeight, gray)
 	}
+}
+
+var img image.Image
+
+func drawRefImg(gtx layout.Context, x, y, w, h float64) {
+	defer op.Save(gtx.Ops).Load()
+	if img == nil {
+		var err error
+		img, err = loadPng("gamma-ramp32.png")
+		if err != nil {
+			log.Fatal("failed loading reference ramp:", err)
+		}
+	}
+	imgSize := img.Bounds().Size()
+	op.Affine(f32.Affine2D{}.Scale(f32.Pt(0, 0), toF32Pt(w/float64(imgSize.X), h/float64(imgSize.Y))).Offset(toF32Pt(x, y))).Add(gtx.Ops)
+	paint.NewImageOp(img).Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+}
+
+func saveAsPng(img image.Image, fileName string) error {
+	f, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	err = png.Encode(f, img)
+	if err != nil {
+		f.Close()
+		os.Remove(fileName)
+		return err
+	}
+	return nil
+}
+
+func loadPng(fileName string) (image.Image, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return png.Decode(f)
 }
