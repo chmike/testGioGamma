@@ -15,6 +15,6 @@ All gray ramps should be identical. The reference ramp is from
 
 ## Usage
 
-To install the program execute `go install github.com/chmike/testGioGamma`.
+To install the program execute `go install github.com/chmike/testGioGamma@latest`.
 
-To run it, execute `testGioGamma` provided that GOBIN is in your $PATH variable.
+To run it, execute `testGioGamma` provided that $GOPATH/bin is in your $PATH variable.
