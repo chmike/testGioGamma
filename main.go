@@ -5,23 +5,27 @@ package main
 /*
 Small Gio programm to test gamma correction.
 
-The program draws two horizontal sequences of boxes colored from
-black to white by using two different methods.
+The program draws four horizontal sequences of gray rectangles colored from
+black (left) to white (right). Each raw is called a gray ramp. The top and
+bottom rows are identical and are the reference ramp. They dispay the ideal
+gray ramp. It is obtained from
+https://blog.johnnovak.net/2016/09/21/what-every-coder-should-know-about-gamma/.
 
-The first line of gray boxes test the effect of gamma correction
-with anti-aliasing. Each box is drawn as a stack of black horizontal lines.
-When the line thickness covers the full line height, is should be shown as
-all black. When the line thickness is half the pixel height, it should be
-drawn as mid gray, etc.
+The gray ramp just below the top ramp test the effect of gamma correction
+with anti-aliasing. Each box is drawn as a stack of black horizontal lines
+not thicker than a pixel. When the line width covers the full pixel height,
+the rectangle must be black. The percentage of pixel height covering
+determines the gray value. When it is 50% the colour must be mid-gray, and
+when it is 0%, the colour must be white. etc.
 
 The second line, draws the boxes as simple rectangles filled with a specified
-color. The color is gray and ranges from black to white.
+color. The color ramp increases linearly with a value in the range 0 to 255.
 
-With correct anti-aliasing and gamma correction, the gray scale must look
-visually as uniformly increasing gray values.
+The bottom ramp is the again the reference ramp for easy comparison with the
+gray ramp just above.
 
-The second line should look identical to the first line. If not, there is a
-problem with gamma correction or anti-aliasing.
+With correct anti-aliasing and gamma correction, all gray ramps must look
+identical or very similar. If not, there is a problem.
 */
 
 import (
@@ -81,15 +85,16 @@ func toF32Pt(x, y float64) f32.Point {
 func drawGrayBar1(gtx layout.Context, width, nbrBox, boxWidth, boxHeight, offsetX, offsetY float64) {
 	defer op.Save(gtx.Ops).Load()
 	paint.ColorOp{Color: color.NRGBA{A: 0xFF}}.Add(gtx.Ops)
+	op.Offset(toF32Pt(offsetX, offsetY)).Add(gtx.Ops)
 	var p clip.Path
 	p.Begin(gtx.Ops)
 	for y := 0.; y < boxHeight; y++ {
 		for x := 0.; x < nbrBox; x++ {
 			lineHeight := 1. - x/nbrBox
-			p.MoveTo(toF32Pt(x*boxWidth+offsetX, y+offsetY))
-			p.LineTo(toF32Pt((x+1)*boxWidth+offsetX, y+offsetY))
-			p.LineTo(toF32Pt((x+1)*boxWidth+offsetX, lineHeight+y+offsetY))
-			p.LineTo(toF32Pt(x*boxWidth+offsetX, lineHeight+y+offsetY))
+			p.MoveTo(toF32Pt(x*boxWidth, y))
+			p.LineTo(toF32Pt((x+1)*boxWidth, y))
+			p.LineTo(toF32Pt((x+1)*boxWidth, lineHeight+y))
+			p.LineTo(toF32Pt(x*boxWidth, lineHeight+y))
 			p.Close()
 		}
 	}
@@ -134,22 +139,6 @@ func drawRefImg(gtx layout.Context, x, y, w, h float64) {
 	op.Affine(f32.Affine2D{}.Scale(f32.Pt(0, 0), toF32Pt(w/float64(imgSize.X), h/float64(imgSize.Y))).Offset(toF32Pt(x, y))).Add(gtx.Ops)
 	paint.NewImageOp(img).Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
-}
-
-func saveAsPng(img image.Image, fileName string) error {
-	f, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	err = png.Encode(f, img)
-	if err != nil {
-		f.Close()
-		os.Remove(fileName)
-		return err
-	}
-	return nil
 }
 
 func loadPng(fileName string) (image.Image, error) {
