@@ -1,4 +1,4 @@
-module testGioGamma
+module github.com/chmike/testGioGamma
 
 go 1.16
 
