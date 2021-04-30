@@ -5,27 +5,31 @@ package main
 /*
 Small Gio programm to test gamma correction.
 
-The program draws four horizontal sequences of gray rectangles colored from
-black (left) to white (right). Each raw is called a gray ramp. The top and
-bottom rows are identical and are the reference ramp. They dispay the ideal
-gray ramp. It is obtained from
+The program draws multiple horizontal sequences of gray rectangles colored
+from black (left) to white (right) called gray ramps. The ramps are numbered
+from 0 to n. Ramp 0, and 3 are called the reference ramps. They represent
+the ramp we should expec. It is obtained from
 https://blog.johnnovak.net/2016/09/21/what-every-coder-should-know-about-gamma/.
 
-The gray ramp just below the top ramp test the effect of gamma correction
-with anti-aliasing. Each box is drawn as a stack of black horizontal lines
-not thicker than a pixel. When the line width covers the full pixel height,
-the rectangle must be black. The percentage of pixel height covering
-determines the gray value. When it is 50% the colour must be mid-gray, and
-when it is 0%, the colour must be white. etc.
+Ramp 1 test the effect of gamma correction with anti-aliasing. Each box is
+drawn as a stack of black horizontal lines not thicker than a pixel. When
+the line width covers the full pixel height, the rectangle must be black.
+The percentage of pixel height covering determines the gray value. When it is
+50% the colour must be mid-gray, and when it is 0%, the colour must be white. etc.
 
-The second line, draws the boxes as simple rectangles filled with a specified
-color. The color ramp increases linearly with a value in the range 0 to 255.
+Im ramp 2, the ramp si drawn as a simple sequence of rectangles filled with one
+gray color linearly increasing with the rectangle position from black (0)  to
+white (255).
 
-The bottom ramp is the again the reference ramp for easy comparison with the
-gray ramp just above.
+Ramp 3 is the reference ramp.
+
+Ramp 4 is the same as the ramp 1, but with white lines over a black background.
+
+Ramp 5 is simply the ramp 1 put next to ramp 4 to make it easy to compare.
 
 With correct anti-aliasing and gamma correction, all gray ramps must look
 identical or very similar. If not, there is a problem.
+
 */
 
 import (
@@ -78,6 +82,9 @@ func loop(w *app.Window) error {
 			drawGrayBar1(gtx, width, nbrBox, boxWidth, boxHeight, 0, boxHeight)
 			drawGrayBar2(gtx, width, nbrBox, boxWidth, boxHeight, 0, 2*boxHeight)
 			drawRefImg(gtx, 0, 3*boxHeight, width, boxHeight)
+			drawGrayBar3(gtx, width, nbrBox, boxWidth, boxHeight, 0, 4*boxHeight)
+			drawGrayBar1(gtx, width, nbrBox, boxWidth, boxHeight, 0, 5*boxHeight)
+			drawSlantedLines(gtx, width, boxHeight, 0, 6*boxHeight)
 			e.Frame(gtx.Ops)
 		}
 	}
@@ -95,7 +102,7 @@ func drawGrayBar1(gtx layout.Context, width, nbrBox, boxWidth, boxHeight, offset
 	p.Begin(gtx.Ops)
 	for y := 0.; y < boxHeight; y++ {
 		for x := 0.; x < nbrBox; x++ {
-			lineHeight := 1. - x/nbrBox
+			lineHeight := 1. - x/(nbrBox-1)
 			p.MoveTo(toF32Pt(x*boxWidth, y))
 			p.LineTo(toF32Pt((x+1)*boxWidth, y))
 			p.LineTo(toF32Pt((x+1)*boxWidth, lineHeight+y))
@@ -107,10 +114,10 @@ func drawGrayBar1(gtx layout.Context, width, nbrBox, boxWidth, boxHeight, offset
 	paint.PaintOp{}.Add(gtx.Ops)
 }
 
-func drawRect(gtx layout.Context, x, y, w, h float64, gray uint8) {
+func drawRect(gtx layout.Context, x, y, w, h float64, gray, alpha uint8) {
 	defer op.Save(gtx.Ops).Load()
 	var p clip.Path
-	paint.ColorOp{Color: color.NRGBA{R: gray, G: gray, B: gray, A: 0xFF}}.Add(gtx.Ops)
+	paint.ColorOp{Color: color.NRGBA{R: gray, G: gray, B: gray, A: alpha}}.Add(gtx.Ops)
 	op.Offset(toF32Pt(x, y)).Add(gtx.Ops)
 	p.Begin(gtx.Ops)
 	p.MoveTo(toF32Pt(0, 0))
@@ -123,9 +130,11 @@ func drawRect(gtx layout.Context, x, y, w, h float64, gray uint8) {
 }
 
 func drawGrayBar2(gtx layout.Context, width, nbrBox, boxWidth, boxHeight, offsetX, offsetY float64) {
+	defer op.Save(gtx.Ops).Load()
+	drawRect(gtx, offsetX, offsetY, width, boxHeight, 0, 0xFF) // black background
 	for x := 0.; x < nbrBox; x++ {
 		gray := uint8((x*255)/(nbrBox-1) + 0.5)
-		drawRect(gtx, x*boxWidth+offsetX, offsetY, boxWidth, boxHeight, gray)
+		drawRect(gtx, x*boxWidth+offsetX, offsetY, boxWidth, boxHeight, gray, 0xFF)
 	}
 }
 
@@ -143,5 +152,44 @@ func drawRefImg(gtx layout.Context, x, y, w, h float64) {
 	imgSize := img.Bounds().Size()
 	op.Affine(f32.Affine2D{}.Scale(f32.Pt(0, 0), toF32Pt(w/float64(imgSize.X), h/float64(imgSize.Y))).Offset(toF32Pt(x, y))).Add(gtx.Ops)
 	paint.NewImageOp(img).Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+}
+
+func drawGrayBar3(gtx layout.Context, width, nbrBox, boxWidth, boxHeight, offsetX, offsetY float64) {
+	defer op.Save(gtx.Ops).Load()
+	drawRect(gtx, offsetX, offsetY, width, boxHeight, 0, 0xFF) // black background
+	paint.ColorOp{Color: color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}}.Add(gtx.Ops)
+	op.Offset(toF32Pt(offsetX, offsetY)).Add(gtx.Ops)
+	var p clip.Path
+	p.Begin(gtx.Ops)
+	for y := 0.; y < boxHeight; y++ {
+		for x := 0.; x < nbrBox; x++ {
+			lineHeight := x / (nbrBox - 1)
+			p.MoveTo(toF32Pt(x*boxWidth, y))
+			p.LineTo(toF32Pt((x+1)*boxWidth, y))
+			p.LineTo(toF32Pt((x+1)*boxWidth, lineHeight+y))
+			p.LineTo(toF32Pt(x*boxWidth, lineHeight+y))
+			p.Close()
+		}
+	}
+	clip.Outline{Path: p.End()}.Op().Add(gtx.Ops)
+	paint.PaintOp{}.Add(gtx.Ops)
+}
+
+func drawSlantedLines(gtx layout.Context, width, height, offsetX, offsetY float64) {
+	defer op.Save(gtx.Ops).Load()
+	drawRect(gtx, offsetX, offsetY, width, height, 0, 0xFF) // black background
+	paint.ColorOp{Color: color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}}.Add(gtx.Ops)
+	op.Offset(toF32Pt(offsetX, offsetY)).Add(gtx.Ops)
+	var p clip.Path
+	p.Begin(gtx.Ops)
+	for i := 0.; i < 5.; i++ {
+		p.MoveTo(toF32Pt(0, (i+1)*6))
+		p.Line(toF32Pt(width, 15))
+		p.Line(toF32Pt(0, 2))
+		p.Line(toF32Pt(-width, -15))
+		p.Close()
+	}
+	clip.Outline{Path: p.End()}.Op().Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 }
